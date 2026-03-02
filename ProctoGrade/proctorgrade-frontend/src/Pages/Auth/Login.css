@@ -1,0 +1,148 @@
+/* Common layout for auth pages (login + forgot) */
+.login-page {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 80vh;
+  background: #f9fafb;
+  padding: 2rem;
+}
+
+/* Container */
+.login-container {
+  background: #ffffff;
+  padding: 3rem 2.5rem;
+  border-radius: 1rem;
+  box-shadow: 0 15px 40px rgba(0,0,0,0.05);
+  width: 100%;
+  max-width: 400px;
+  text-align: center;
+}
+
+.login-container h2 {
+  color: #4f46e5;
+  margin-bottom: 1.5rem;
+}
+
+.login-container form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.login-container label {
+  text-align: left;
+  font-weight: 500;
+  color: #374151;
+}
+
+.login-container input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid #e5e7eb;
+  font-size: 1rem;
+  outline: none;
+  transition: border 0.3s;
+}
+
+.login-container input:focus {
+  border: 2px solid #6366f1;
+}
+
+/* main submit button */
+.login-submit-btn {
+  margin-top: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 9999px;
+  border: none;
+  font-weight: 600;
+  color: white;
+  background: #6366f1;
+  cursor: pointer;
+  transition: all 0.3s;
+  width: 100%;
+}
+
+.login-submit-btn:hover {
+  transform: scale(1.03);
+  box-shadow: 0 8px 25px rgba(99,102,241,0.4);
+}
+
+/* Message text (success / error) */
+.message {
+  margin-top: 1rem;
+  font-size: 0.9rem;
+}
+
+/* Bottom texts (Sign up / Forgot link on login page) */
+.login-bottom-text {
+  margin-top: 0.35rem;
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+.forgot-bottom-link {
+  color: #4b5563;
+  text-decoration: none;
+}
+
+.forgot-bottom-link:hover {
+  color: #111827;
+  text-decoration: underline;
+}
+
+/* Generic paragraph styling inside auth container */
+.login-container p {
+  margin-top: 1rem;
+  color: #6b7280;
+  font-size: 0.95rem;
+}
+
+/* ===== Responsive tweaks ===== */
+
+/* Tablets and small laptops */
+@media (max-width: 900px) {
+  .login-page {
+    padding: 1.5rem;
+    min-height: 100vh;
+  }
+
+  .login-container {
+    padding: 2.5rem 2rem;
+    max-width: 420px;
+  }
+}
+
+/* Mobile phones */
+@media (max-width: 600px) {
+  .login-page {
+    padding: 1.2rem 0.8rem;
+  }
+
+  .login-container {
+    padding: 1.8rem 1.4rem;
+    border-radius: 0.9rem;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.04);
+  }
+
+  .login-container h2 {
+    font-size: 1.4rem;
+    margin-bottom: 1.1rem;
+  }
+
+  .login-container input {
+    font-size: 0.95rem;
+    padding: 0.7rem 0.9rem;
+  }
+
+  .login-submit-btn {
+    font-size: 0.95rem;
+    padding: 0.7rem 0.9rem;
+  }
+
+  .login-container p,
+  .login-bottom-text {
+    font-size: 0.85rem;
+  }
+}
