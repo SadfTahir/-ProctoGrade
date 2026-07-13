@@ -26,9 +26,18 @@
 
 ---
 
+## 🖼️ FYP Poster
+
+<div align="center">
+  <img src="./Final_Poster_design (22.5 x 34.5 in).png" alt="ProctoGrade FYP Poster" width="700"/>
+</div>
+
+---
+
 ## 📑 Table of Contents
 
 - [Overview](#-overview)
+- [FYP Poster](#️-fyp-poster)
 - [Core Architecture & Modules](#-core-architecture--modules)
   - [Module 1: AI-Based Test Generation](#-module-1-ai-based-test-generation)
   - [Module 2: Multi-Model AI Proctoring](#-module-2-multi-model-ai-proctoring-real-time)
@@ -122,7 +131,7 @@ ProctoGrade/
 
 ---
 
-## 👥 Team & Acknowledgements
+## 👥 Acknowledgements
 
 Developed as a **Final Year Project (FYP-II)** at **FAST NUCES — Chiniot-Faisalabad Campus**.
 
