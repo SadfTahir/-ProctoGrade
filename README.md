@@ -18,7 +18,7 @@
 
 </div>
 
----
+<img src="https://capsule-render.vercel.app/api?type=rect&color=9333EA&height=4&width=1000" width="100%"/>
 
 ## 📽️ Project Demo
 
@@ -131,9 +131,9 @@ ProctoGrade/
 
 ---
 
-## 👥 Acknowledgements
+## 👥 Team & Acknowledgements
 
-Developed as a **Final Year Project (FYP-II)** at **FAST NUCES — Chiniot-Faisalabad Campus**.
+Developed with ❤️ as a **Final Year Project (FYP-II)** at **FAST NUCES — Chiniot-Faisalabad Campus**.
 
 ---
 
