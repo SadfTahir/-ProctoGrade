@@ -4,6 +4,11 @@ ProctoGrade is an advanced, end-to-end AI-powered solution designed to ensure ac
 
 ---
 
+## 🎥 Project Demo Video
+▶️ **[Watch the ProctoGrade System Demo on Google Drive](https://drive.google.com/file/d/1m1ZJp0oG2j2Q6mbGHFTF4JMSqUZy7E33/view?usp=drive_link)**
+
+---
+
 ## 🚀 Key Features
 
 ### 🛡️ Intelligent AI Proctoring
@@ -13,7 +18,7 @@ ProctoGrade is an advanced, end-to-end AI-powered solution designed to ensure ac
 * **Audio Analysis:** Background noise and speech detection during active exam sessions.
 
 ### 📊 Automated Grading System
-* **Descriptive Answer Evaluation:** NLP-based evaluation for conceptual correctness.
+* **Descriptive Answer Evaluation:** NLP-based evaluation using Llama 3 and FAISS (RAG) for conceptual correctness.
 * **Instant Dashboard Analytics:** Detailed performance reports for both instructors and administration.
 
 ---
@@ -23,8 +28,8 @@ ProctoGrade is an advanced, end-to-end AI-powered solution designed to ensure ac
 | Component | Technology / Framework |
 | :--- | :--- |
 | **Frontend** | Vite.js, React.js, Tailwind CSS |
-| **Backend** | Node.js, Express.js |
-| **AI / ML Core** | Python, OpenCV, MediaPipe, NetworkX |
+| **Backend** | Node.js, Express.js, FastAPI |
+| **AI / ML Core** | Python, Llama 3, FAISS (RAG), OpenCV, MediaPipe, NetworkX |
 | **Database** | MongoDB / PostgreSQL |
 
 ---
