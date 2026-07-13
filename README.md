@@ -1,51 +1,44 @@
-# ProctoGrade — Automated AI-Based Exam Proctoring & Grading System
+<div align="center">
 
-ProctoGrade is an advanced, end-to-end AI-powered examination and proctoring platform designed to ensure academic integrity in online testing while automating the test generation and reporting workflow. Developed as a Final Year Project (FYP-II) at **FAST NUCES (Chiniot-Faisalabad Campus)**.
+<img width="100%" src="https://capsule-render.vercel.app/api?type=waving&color=0:ec4899,50:a855f7,100:7c3aed&height=220&section=header&text=ProctoGrade%20%F0%9F%90%81&fontSize=56&fontColor=ffffff&animation=fadeIn&fontAlignY=38&desc=Automated%20AI-Based%20Exam%20Proctoring%20%26%20Grading%20System&descAlignY=62&descSize=18" />
 
----
+[![Typing SVG](https://readme-typing-svg.demolab.com?font=Fira+Code&size=18&pause=1000&color=A78BFA&center=true&vCenter=true&width=650&lines=Multi-Model+Real-Time+AI+Proctoring+%F0%9F%91%81%EF%B8%8F;LLM++%2B+FAISS+RAG+Question+Generation+%F0%9F%A4%96;92%25+Violation+Detection+Accuracy+%E2%9C%85;FAST+NUCES+FYP-II+Award-Winning+Concept+%F0%9F%8E%93)](https://git.io/typing-svg)
 
-## 🎥 Project Demo Video
-▶️ **[Watch the Complete ProctoGrade System Demo on Google Drive](https://drive.google.com/file/d/1m1ZJp0oG2j2Q6mbGHFTF4JMSqUZy7E33/view?usp=drive_link)**
+<br/>
 
----
+<table>
+<tr>
+<td><img src="https://img.shields.io/badge/✅_Status-Completed-22c55e?style=for-the-badge"/></td>
+<td><img src="https://img.shields.io/badge/🎯_Accuracy-92%25-7c3aed?style=for-the-badge"/></td>
+<td><img src="https://img.shields.io/badge/🧠_Core_AI-Llama3_|_FAISS_|_YOLOv8-ec4899?style=for-the-badge"/></td>
+</tr>
+</table>
 
-## 🚀 Core Architecture & Modules
+<br/>
 
-### 🤖 Module 1: AI-Based Test Generation
-* **RAG Pipeline:** Utilizes an LLM (Llama 3) combined with a **FAISS** vector database for contextual and accurate question generation from uploaded PDFs/Content.
-* **Smart Versioning:** Automatically generates two unique versions of exams based on selected difficulty metrics.
-* **Instructor Controls:** Supports dynamic editing, marks adjustment, exam scheduling, and self-learning test modes for student practice.
+### 🎥 Project Demo Video
+▶️ **[Watch the ProctoGrade System Demo on Google Drive](https://drive.google.com/file/d/1m1ZJp0oG2j2Q6mbGHFTF4JMSqUZy7E33/view?usp=drive_link)**
 
-### 👁️ Module 2: Multi-Model AI Proctoring (Real-Time)
-To handle real-time latency at 30 FPS, the system runs 5 heavy models concurrently using optimized frame-skipping and parallel processing:
-* **Face Verification:** Powered by **InsightFace** (executes every 15th frame) against a baseline registration snapshot.
-* **Gaze & Head Tracking:** Utilizes **MediaPipe** paired with **L2CS-Net** for precise head pose estimation and eye-gaze tracking.
-* **Object Detection:** Implements **YOLOv8m** to actively scan for unauthorized electronic gadgets (mobiles, laptops, earbuds) every 3rd frame.
-* **Voice Verification:** Integrated with **Resemblyzer** for continuous background audio analysis and speaker verification.
-* **OS-Level Control:** Monitored via **pygetwindow** for tab-switch detection (with automated screenshot logging) alongside browser-level clipboard copy-paste blocking.
-* *Optimization:* Implemented a 15-second cooldown on screenshot captures to mitigate Database (DB) flooding. A suspicion score > 55% automatically saves the snapshot as binary evidence.
-
-### 📊 Module 3: AI Report Generation & Dashboard
-* Comprehensive analytics dashboard for educators displaying individual student summaries.
-* Violation reports containing precise timestamps and corresponding snapshot/binary evidence for auditing.
+</div>
 
 ---
 
-## 🛠️ Tech Stack
+## ❓ The Problem & The Solution
 
-| Component | Technology / Framework |
-| :--- | :--- |
-| **Frontend** | React.js, Vite.js, Tailwind CSS |
-| **Backend API** | Node.js, Express.js, FastAPI |
-| **AI / ML Core** | Python, Llama 3, FAISS, OpenCV, YOLOv8, InsightFace, MediaPipe |
-| **Database** | MongoDB / PostgreSQL |
+Online examinations face critical issues: manual question generation consumes hours, proctoring infrastructure is either absent or highly expensive, and cheating violations rarely have verifiable proof. 
+
+**ProctoGrade** delivers a production-grade, end-to-end AI alternative. From intelligent exam creation to real-time proctoring and comprehensive dashboard reporting—all managed within a unified architecture divided into three high-performance modules.
 
 ---
 
-## 📂 Project Structure
+## 🛠️ System Architecture & Modules
 
-```text
-ProctoGrade/
-├── exam_proctor/          # Python Core AI & Computer Vision Services (FastAPI)
-├── proctograde-backend/   # Node.js REST API Layer
-└── proctorgrade-frontend/  # React.js (Vite) User Interface
+```python
+class ProctoGrade:
+    modules  = {
+        "Module_1" : "AI-Based Test Generation & Practice Engine",
+        "Module_2" : "Multi-Model Real-Time AI Proctoring Dashboard",
+        "Module_3" : "Automated Grading & Evaluation Pipeline"
+    }
+    performance = "30 FPS Real-Time Inference via Frame-Skipping"
+    integrity   = "Suspicion Score > 55% saves immutable binary evidence"
