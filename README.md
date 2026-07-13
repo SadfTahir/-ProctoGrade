@@ -124,7 +124,7 @@ ProctoGrade/
 
 ## 👥 Team & Acknowledgements
 
-Developed with ❤️ as a **Final Year Project (FYP-II)** at **FAST NUCES — Chiniot-Faisalabad Campus**.
+Developed as a **Final Year Project (FYP-II)** at **FAST NUCES — Chiniot-Faisalabad Campus**.
 
 ---
 
