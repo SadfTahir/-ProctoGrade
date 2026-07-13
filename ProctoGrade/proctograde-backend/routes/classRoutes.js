@@ -1,3 +1,6 @@
+// backend/routes/classRoutes.js (Ya jo bhi aapki backend classes route file hai)
+// ✅ Updated with Dynamic studentCount aggregation for Instructor Portal
+
 const express = require("express");
 const Class = require("../models/Class");
 const User = require("../models/User");
@@ -14,7 +17,7 @@ function generateJoinCode(length = 6) {
   return code;
 }
 
-// POST /api/classes/create  (teacher banata hai)
+// POST /api/classes/create (teacher banata hai)
 router.post("/create", auth, async (req, res) => {
   try {
     const { name, section, subject } = req.body;
@@ -42,8 +45,10 @@ router.post("/create", auth, async (req, res) => {
       cls: {
         id: cls._id,
         name: cls.name,
+        section: cls.section,
         subject: cls.subject,
         joinCode: cls.joinCode,
+        studentCount: 0 // New class has 0 students initially
       },
     });
   } catch (err) {
@@ -52,7 +57,7 @@ router.post("/create", auth, async (req, res) => {
   }
 });
 
-// POST /api/classes/join  (student code se join karta hai)
+// POST /api/classes/join (student code se join karta hai)
 router.post("/join", auth, async (req, res) => {
   try {
     const { joinCode } = req.body;
@@ -90,7 +95,7 @@ router.post("/join", auth, async (req, res) => {
   }
 });
 
-// GET /api/classes/my  (current user ki classes - student side)
+// GET /api/classes/my (current user ki classes - student side)
 router.get("/my", auth, async (req, res) => {
   try {
     const user = await User.findById(req.user.id).populate("classes");
@@ -110,16 +115,30 @@ router.get("/my", auth, async (req, res) => {
   }
 });
 
-// GET /api/classes/my-teacher  (jis teacher ne banayi hain)
+// 📊 GET /api/classes/my-teacher (Gimi Fixed — Fetches real student counts per class)
 router.get("/my-teacher", auth, async (req, res) => {
   try {
     const classes = await Class.find({ teacher: req.user.id });
-    const mapped = classes.map((cls) => ({
-      id: cls._id,
-      name: cls.name,
-      subject: cls.subject,
-      joinCode: cls.joinCode,
-    }));
+    
+    // Har class ke liye real-time background counter mapping
+    const mapped = await Promise.all(
+      classes.map(async (cls) => {
+        const studentCount = await User.countDocuments({
+          role: "examinee",
+          classes: cls._id,
+        });
+
+        return {
+          id: cls._id,
+          name: cls.name,
+          section: cls.section,
+          subject: cls.subject,
+          joinCode: cls.joinCode,
+          studentCount: studentCount, // ✅ Passed directly to dynamic UI cards
+        };
+      })
+    );
+    
     res.json(mapped);
   } catch (err) {
     console.error(err);
@@ -127,7 +146,7 @@ router.get("/my-teacher", auth, async (req, res) => {
   }
 });
 
-// PATCH /api/classes/:id  (update name/section/subject - sirf owner teacher)
+// PATCH /api/classes/:id (update name/section/subject - sirf owner teacher)
 router.patch("/:id", auth, async (req, res) => {
   try {
     const classId = req.params.id;
@@ -138,7 +157,6 @@ router.patch("/:id", auth, async (req, res) => {
       return res.status(404).json({ msg: "Class not found" });
     }
 
-    // Ownership check
     if (cls.teacher.toString() !== req.user.id) {
       return res.status(403).json({ msg: "Not allowed" });
     }
@@ -165,7 +183,7 @@ router.patch("/:id", auth, async (req, res) => {
   }
 });
 
-// DELETE /api/classes/:id  (delete class - sirf owner teacher)
+// DELETE /api/classes/:id (delete class - sirf owner teacher)
 router.delete("/:id", auth, async (req, res) => {
   try {
     const classId = req.params.id;
@@ -175,15 +193,12 @@ router.delete("/:id", auth, async (req, res) => {
       return res.status(404).json({ msg: "Class not found" });
     }
 
-    // Ownership check
     if (cls.teacher.toString() !== req.user.id) {
       return res.status(403).json({ msg: "Not allowed" });
     }
 
-    // 1) Class delete
     await Class.findByIdAndDelete(classId);
 
-    // 2) Sab users ke classes array se yeh class remove
     await User.updateMany(
       { classes: classId },
       { $pull: { classes: classId } }
@@ -196,29 +211,25 @@ router.delete("/:id", auth, async (req, res) => {
   }
 });
 
-// DELETE /api/classes/:classId/students/:studentId  (remove student from class)
+// DELETE /api/classes/:classId/students/:studentId (remove student from class)
 router.delete("/:classId/students/:studentId", auth, async (req, res) => {
   try {
     const { classId, studentId } = req.params;
 
-    // 1) Class exist karti hai?
     const cls = await Class.findById(classId);
     if (!cls) {
       return res.status(404).json({ msg: "Class not found" });
     }
 
-    // Ownership check: sirf class ka teacher
     if (cls.teacher.toString() !== req.user.id) {
       return res.status(403).json({ msg: "Not allowed" });
     }
 
-    // 2) Student exist karta hai?
     const student = await User.findById(studentId);
     if (!student) {
       return res.status(404).json({ msg: "Student not found" });
     }
 
-    // 3) User.classes array se classId hatao
     await User.updateOne(
       { _id: studentId },
       { $pull: { classes: classId } }
@@ -231,23 +242,16 @@ router.delete("/:classId/students/:studentId", auth, async (req, res) => {
   }
 });
 
-// GET /api/classes/:id/students  (us class me enrolled students)
+// GET /api/classes/:id/students (us class me enrolled students)
 router.get("/:id/students", auth, async (req, res) => {
   try {
     const classId = req.params.id;
 
-    // 1) Class exist karti hai?
     const cls = await Class.findById(classId);
     if (!cls) {
       return res.status(404).json({ msg: "Class not found" });
     }
 
-    // NOTE: ownership check temporarily removed for testing
-    // if (cls.teacher.toString() !== req.user.id) {
-    //   return res.status(403).json({ msg: "Not allowed" });
-    // }
-
-    // 3) Users jinke classes array me yeh classId hai + role examinee
     const students = await User.find({
       role: "examinee",
       classes: classId,

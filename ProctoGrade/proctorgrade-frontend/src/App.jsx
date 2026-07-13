@@ -26,6 +26,7 @@ import InstructorDashboard from "./Pages/Dashboards/InstructorDashboard";
 import StudentDashboard from "./Pages/Dashboards/StudentDashboard";
 
 import UserManagement from "./components/AdminComponents/UserManagement";
+import ContactInquiries from "./components/AdminComponents/ContactInquiries";
 import ProtectedRoute from "./components/ProtectedRoute";
 import StudentClassDetailView from "./components/StudentComponents/StudentClassDetailView";
 import StudentExamAttempt from "./components/StudentComponents/StudentExamAttempt";
@@ -104,6 +105,14 @@ function App() {
             element={
               <ProtectedRoute requiredRole="examinee">
                 <StudentDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin-dashboard/contact-inquiries"
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <ContactInquiries />
               </ProtectedRoute>
             }
           />

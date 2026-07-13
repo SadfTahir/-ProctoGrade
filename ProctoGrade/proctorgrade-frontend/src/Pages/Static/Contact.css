@@ -131,6 +131,25 @@
   box-shadow: 0 7px 30px rgba(99,102,241,0.22);
 }
 
+.contact-form-status {
+  padding: 0.65rem 0.9rem;
+  border-radius: 0.65rem;
+  font-size: 0.92rem;
+  margin-bottom: 0.25rem;
+}
+
+.contact-form-status.ok {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+.contact-form-status.err {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
 /* ===== Responsive ===== */
 
 /* Tablets / small laptops */

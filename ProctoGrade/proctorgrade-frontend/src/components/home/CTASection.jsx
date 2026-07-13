@@ -7,12 +7,22 @@ export default function CTASection() {
     <section className="cta-section">
       <h2>Ready to Modernize Your Exams?</h2>
       <p>Experience secure, AI-driven assessments built for the future of learning.</p>
-      <button
-        className="cta-main-btn"
-        onClick={() => navigate("/register")}
-      >
-        Get Started
-      </button>
+      <div className="cta-actions">
+        <button
+          className="cta-main-btn"
+          type="button"
+          onClick={() => navigate("/register")}
+        >
+          Get Started
+        </button>
+        <button
+          className="cta-secondary-btn"
+          type="button"
+          onClick={() => navigate("/contact")}
+        >
+          Contact Us
+        </button>
+      </div>
     </section>
   );
 }

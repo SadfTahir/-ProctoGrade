@@ -6,21 +6,38 @@ function DeleteUserConfirmation({ open, user, onConfirm, onCancel }) {
 
   return (
     <div className="admin-modal">
-      <form className="delete-user-form">
+      <div className="delete-user-form">
         <div className="admin-section-header modal-header">
           <span className="section-icon trash-icon">
-            {/* SVG Trash Icon */}
-            <svg height="42" viewBox="0 0 24 24" fill="#186ad6"><path d="M7 21c0 1.104.896 2 2 2h6c1.104 0 2-.896 2-2H7zm13-3V5c0-1.104-.896-2-2-2h-3.382l-.724-2.447A.998.998 0 0 0 13 0h-2c-.416 0-.788.254-.894.649L9.382 3H6c-1.104 0-2 .896-2 2v13c0 1.104.896 2 2 2h14c1.104 0 2-.896 2-2zM5 5c0-.553.447-1 1-1h14c.553 0 1 .447 1 1v13c0 .553-.447 1-1 1H6c-.553 0-1-.447-1-1V5zm5-4h4l.724 2.447A.998.998 0 0 0 17 4H7c-.416 0-.788-.254-.894-.649L10 1zm2 1v2h-2V2h2z"/></svg>
+            <svg height="20" width="20" viewBox="0 0 24 24">
+              <path
+                d="M9 3v1H4v2h1v13a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6h1V4h-5V3H9zm0 5h2v9H9V8zm4 0h2v9h-2V8z"
+                fill="var(--danger)"
+              />
+            </svg>
           </span>
           <h2>Delete User</h2>
         </div>
-        <p>Are you sure you want to delete <strong>{user.name}</strong>?</p>
+
+        <p>
+          Are you sure you want to delete <strong>{user.name}</strong>?
+          <br />
+          <span style={{ fontSize: "0.82rem", color: "var(--text-muted)", marginTop: "4px", display: "block" }}>
+            This action cannot be undone.
+          </span>
+        </p>
+
         <div className="edit-modal-actions">
-          <button type="button" className="modal-btn primary" onClick={onConfirm}>Yes, Delete</button>
-          <button type="button" className="modal-btn" onClick={onCancel}>Cancel</button>
+          <button type="button" className="modal-btn danger" onClick={onConfirm}>
+            Yes, Delete
+          </button>
+          <button type="button" className="modal-btn" onClick={onCancel}>
+            Cancel
+          </button>
         </div>
-      </form>
+      </div>
     </div>
   );
 }
+
 export default DeleteUserConfirmation;

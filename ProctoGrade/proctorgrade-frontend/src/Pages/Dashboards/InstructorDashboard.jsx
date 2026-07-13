@@ -1,9 +1,10 @@
-// src/Pages/InstructorDashboard.jsx
+// src/pages/InstructorDashboard/InstructorDashboard.jsx
+// ✅ Complete UI-linked file matching data states with real-time stats cards
+
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import "./InstructorDashboard.css";
 import AiTestGenerator from "../../components/InstructorComponents/AiTestGenerator";
-
 import ClassDetailView from "../../components/InstructorComponents/ClassDetailView";
 import InstructorClasses from "../../components/InstructorComponents/InstructorClasses";
 import CreateClassForm from "../../components/InstructorComponents/CreateClassForm";
@@ -13,22 +14,23 @@ const BACKEND_URL = "http://localhost:5000";
 export default function InstructorDashboard() {
   const navigate = useNavigate();
 
+  // Tab & UI States
   const [activeTab, setActiveTab] = useState("classes");
   const [userInfo, setUserInfo] = useState(null);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
 
+  // Form states
   const [className, setClassName] = useState("");
   const [classSection, setClassSection] = useState("");
   const [classSubject, setClassSubject] = useState("");
   const [classLoading, setClassLoading] = useState(false);
   const [classError, setClassError] = useState("");
-  const [createdClassInfo, setCreatedClassInfo] = useState(null);
 
+  // Data states
   const [myClasses, setMyClasses] = useState([]);
   const [loadingClasses, setLoadingClasses] = useState(false);
   const [classesError, setClassesError] = useState("");
-
   const [selectedClass, setSelectedClass] = useState(null);
-
   const [allExams, setAllExams] = useState([]);
   const [loadingExams, setLoadingExams] = useState(false);
   const [examsError, setExamsError] = useState("");
@@ -43,336 +45,374 @@ export default function InstructorDashboard() {
     const storedUser = localStorage.getItem("user");
     if (storedUser) {
       try {
-        const parsed = JSON.parse(storedUser);
-        setUserInfo(parsed);
+        setUserInfo(JSON.parse(storedUser));
       } catch (e) {
-        console.error("Error parsing user from localStorage", e);
-        localStorage.removeItem("user");
-        localStorage.removeItem("token");
-        navigate("/login");
-        return;
+        handleLogout();
       }
     }
-
     const token = localStorage.getItem("token");
-    if (!token) {
-      console.log("No token found, redirecting to login...");
-      navigate("/login");
-      return;
-    }
+    if (!token) return navigate("/login");
 
-    async function fetchMyClasses() {
-      try {
-        setLoadingClasses(true);
-        setClassesError("");
-        const res = await fetch(`${BACKEND_URL}/api/classes/my-teacher`, {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        if (res.status === 401) {
-          console.log("Token is invalid, logging out...");
-          localStorage.removeItem("token");
-          localStorage.removeItem("user");
-          navigate("/login");
-          return;
-        }
-
-        if (!res.ok) {
-          const data = await res.json().catch(() => ({}));
-          throw new Error(data.msg || "Failed to load classes");
-        }
-
-        const data = await res.json();
-        if (Array.isArray(data)) {
-          setMyClasses(
-            data.map((cls) => ({
-              id: cls.id,
-              name: cls.name,
-              subject: cls.subject,
-              joinCode: cls.joinCode,
-              section: cls.section,
-            }))
-          );
-        }
-      } catch (err) {
-        console.error("Error fetching teacher classes:", err);
-        setClassesError(err.message || "Error loading classes");
-      } finally {
-        setLoadingClasses(false);
-      }
-    }
-
+    // Live counts on dashboard load
     fetchMyClasses();
+    fetchExams();
   }, [navigate]);
 
-  const fetchAllExams = async () => {
+  async function fetchMyClasses() {
+    const token = localStorage.getItem("token");
+    try {
+      setLoadingClasses(true);
+      const res = await fetch(`${BACKEND_URL}/api/classes/my-teacher`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.status === 401) return handleLogout();
+      const data = await res.json();
+      if (Array.isArray(data)) setMyClasses(data);
+    } catch (err) {
+      setClassesError("Error loading classes");
+    } finally {
+      setLoadingClasses(false);
+    }
+  }
+
+  async function fetchExams() {
     try {
       setLoadingExams(true);
-      setExamsError("");
       const res = await fetch(`${BACKEND_URL}/api/exams`);
-      const data = await res.json().catch(() => []);
-      if (!res.ok) {
-        throw new Error(data.msg || data.error || "Failed to load exams");
-      }
-      setAllExams(data);
+      const data = await res.json();
+      if (Array.isArray(data)) setAllExams(data);
     } catch (err) {
-      console.error("Error loading all exams:", err);
-      setExamsError(err.message || "Error loading exams");
+      setExamsError("Failed to load exams");
     } finally {
       setLoadingExams(false);
     }
-  };
+  }
 
   useEffect(() => {
     if (activeTab === "assigned-tests") {
-      fetchAllExams();
+      fetchExams();
     }
   }, [activeTab]);
 
   const handleCreateClass = async () => {
-    setClassError("");
-    setCreatedClassInfo(null);
-
-    if (!className.trim()) {
-      setClassError("Please enter a class name.");
-      return;
-    }
-
-    const token = localStorage.getItem("token");
-    if (!token) {
-      setClassError("Not authenticated. Please log in again.");
-      return;
-    }
-
+    if (!className.trim()) return setClassError("Class name is required");
     setClassLoading(true);
     try {
       const res = await fetch(`${BACKEND_URL}/api/classes/create`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
         },
-        body: JSON.stringify({
-          name: className,
-          section: classSection,
-          subject: classSubject,
-        }),
+        body: JSON.stringify({ name: className, section: classSection, subject: classSubject }),
       });
-
       const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.msg || "Failed to create class");
+      if (res.ok) {
+        setMyClasses([...myClasses, data.cls]);
+        setActiveTab("classes");
+        setClassName("");
+        setClassSection("");
+        setClassSubject("");
+        setClassError("");
       }
-
-      if (data.cls) {
-        setCreatedClassInfo(data.cls);
-        setMyClasses((prev) => [...prev, data.cls]);
-      }
-
-      setClassName("");
-      setClassSection("");
-      setClassSubject("");
     } catch (err) {
-      console.error(err);
-      setClassError("Error creating class. Please try again.");
+      setClassError("Error creating class");
     } finally {
       setClassLoading(false);
     }
   };
 
-  const handleViewClass = (cls) => {
-    setSelectedClass(cls);
-    setActiveTab("class-detail");
-  };
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (!e.target.closest(".instructor-profile-wrapper")) {
+        setShowProfileMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // ─── DYNAMIC STATS COMPUTATION ───
+  // ✅ Maps directly with the new backend schema data values
+  const totalStudents = myClasses.reduce((acc, cls) => acc + (cls.studentCount || 0), 0);
+  const activeExams = allExams.filter((e) => e.status === "Active").length;
 
   return (
     <div className="instructor-dashboard">
-      {/* Topbar */}
+
+      {/* ─── TOP BAR ─── */}
       <header className="instructor-topbar">
         <div className="topbar-left">
+          <div className="logo-mark">PG</div>
           <h2 className="app-title">ProctoGrade</h2>
-          <span className="app-subtitle">Instructor Dashboard</span>
+          <span className="app-subtitle">Instructor Portal</span>
         </div>
+
         <div className="topbar-right">
-          <div className="instructor-profile">
-            <div className="avatar-circle">
-              {userInfo?.name ? userInfo.name.charAt(0).toUpperCase() : "T"}
-            </div>
-            <div className="profile-info">
-              <span className="profile-name">
-                {userInfo?.name || "Teacher Name"}
-              </span>
-              <span className="profile-role">
-                {userInfo?.email || "instructor@example.com"}
-              </span>
-            </div>
-          </div>
-          <button className="logout-btn" onClick={handleLogout}>
-            Logout
+          <button className="notif-btn" title="Notifications">
+            🔔
+            <span className="notif-dot" />
           </button>
+
+          <div
+            className="instructor-profile-wrapper"
+            onClick={() => setShowProfileMenu(!showProfileMenu)}
+          >
+            <div className="instructor-profile">
+              <div className="avatar-circle">
+                {userInfo?.name?.charAt(0).toUpperCase() || "T"}
+              </div>
+              <div className="profile-info">
+                <span className="profile-name">{userInfo?.name || "Instructor"}</span>
+                <span className="profile-role">● Active</span>
+              </div>
+            </div>
+
+            {/* Profile Dropdown */}
+            {showProfileMenu && (
+              <div className="profile-dropdown-card">
+                <div className="dropdown-header">
+                  <div className="large-avatar">
+                    {userInfo?.name?.charAt(0).toUpperCase() || "T"}
+                  </div>
+                  <h4>{userInfo?.name || "Instructor"}</h4>
+                  <p>{userInfo?.email || "instructor@proctograde.com"}</p>
+                </div>
+
+                <div className="dropdown-divider" />
+
+                <div className="dropdown-stats">
+                  <div className="stat-item">
+                    <span className="stat-label">Total Classes</span>
+                    <span className="stat-value">{myClasses.length}</span>
+                  </div>
+                  <div className="stat-item" style={{ marginTop: "6px" }}>
+                    <span className="stat-label">Total Students</span>
+                    <span className="stat-value">{totalStudents}</span>
+                  </div>
+                </div>
+
+                <button className="dropdown-logout-btn" onClick={handleLogout}>
+                  🚪 Sign Out
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
-      {/* Main layout */}
       <div className="instructor-main">
-        {/* Sidebar */}
+
+        {/* ─── SIDEBAR ─── */}
         <aside className="instructor-sidebar">
+          <span className="sidebar-section-label">Main Menu</span>
+
           <button
-            className={
-              activeTab === "classes" ? "sidebar-item active" : "sidebar-item"
-            }
-            onClick={() => {
-              setActiveTab("classes");
-              setSelectedClass(null);
-            }}
+            className={`sidebar-item ${activeTab === "classes" ? "active" : ""}`}
+            onClick={() => { setActiveTab("classes"); setSelectedClass(null); }}
           >
-            Classes
+            📚 My Classes
+            {myClasses.length > 0 && (
+              <span className="sidebar-badge">{myClasses.length}</span>
+            )}
           </button>
+
           <button
-            className={
-              activeTab === "create" ? "sidebar-item active" : "sidebar-item"
-            }
-            onClick={() => {
-              setActiveTab("create");
-              setSelectedClass(null);
-            }}
+            className={`sidebar-item ${activeTab === "create" ? "active" : ""}`}
+            onClick={() => { setActiveTab("create"); setSelectedClass(null); }}
           >
-            Create Class
+            ➕ Create Class
           </button>
+
           <button
-            className={
-              activeTab === "assigned-tests"
-                ? "sidebar-item active"
-                : "sidebar-item"
-            }
-            onClick={() => {
-              setActiveTab("assigned-tests");
-              setSelectedClass(null);
-            }}
+            className={`sidebar-item ${activeTab === "assigned-tests" ? "active" : ""}`}
+            onClick={() => { setActiveTab("assigned-tests"); setSelectedClass(null); }}
           >
-            Assigned Tests
+            📝 Assigned Tests
+            {activeExams > 0 && (
+              <span className="sidebar-badge amber">{activeExams}</span>
+            )}
+          </button>
+
+          <div className="sidebar-divider" />
+
+          <button className="sidebar-item sidebar-logout" onClick={handleLogout}>
+            🚪 Sign Out
           </button>
         </aside>
 
-        {/* Content area */}
+        {/* ─── MAIN CONTENT ─── */}
         <main className="instructor-content">
+
+          {/* Stats Summary Panel */}
+          {activeTab === "classes" && !selectedClass && (
+            <div className="stats-grid">
+              
+              <div className="stat-overview-card purple">
+                <div className="stat-icon-wrap purple">📚</div>
+                <div className="stat-card-label">Total Classes</div>
+                <div className="stat-card-value">{myClasses.length}</div>
+                <div className="stat-card-change up">↑ Active this semester</div>
+                <div className="stat-progress-wrap">
+                  <div className="stat-progress-track">
+                    <div
+                      className="stat-progress-fill purple"
+                      style={{ width: `${Math.min(myClasses.length * 25, 100)}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="stat-overview-card green">
+                <div className="stat-icon-wrap green">👥</div>
+                <div className="stat-card-label">Total Students</div>
+                <div className="stat-card-value">{totalStudents}</div>
+                <div className="stat-card-change up">↑ Enrolled</div>
+                <div className="stat-progress-wrap">
+                  <div className="stat-progress-track">
+                    <div
+                      className="stat-progress-fill green"
+                      style={{ width: `${Math.min(totalStudents * 5, 100)}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="stat-overview-card amber">
+                <div className="stat-icon-wrap amber">📝</div>
+                <div className="stat-card-label">Active Tests</div>
+                <div className="stat-card-value">{activeExams}</div>
+                <div className="stat-card-change neutral">
+                  <span className="live-dot" />
+                  Live now
+                </div>
+                <div className="stat-progress-wrap">
+                  <div className="stat-progress-track">
+                    <div
+                      className="stat-progress-fill amber"
+                      style={{ width: `${Math.min(activeExams * 25, 100)}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="stat-overview-card blue">
+                <div className="stat-icon-wrap blue">✅</div>
+                <div className="stat-card-label">Total Exams</div>
+                <div className="stat-card-value">{allExams.length}</div>
+                <div className="stat-card-change up">↑ All time</div>
+                <div className="stat-progress-wrap">
+                  <div className="stat-progress-track">
+                    <div
+                      className="stat-progress-fill blue"
+                      style={{ width: `${Math.min(allExams.length * 10, 100)}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          )}
+
+          {/* ── MY CLASSES TAB ── */}
           {activeTab === "classes" && (
             <InstructorClasses
               myClasses={myClasses}
               loadingClasses={loadingClasses}
-              classesError={classesError}
-              onViewStudents={handleViewClass}
-              setMyClasses={setMyClasses}
-            />
-          )}
-
-          {activeTab === "create" && (
-            <CreateClassForm
-              className={className}
-              setClassName={setClassName}
-              classSection={classSection}
-              setClassSection={setClassSection}
-              classSubject={classSubject}
-              setClassSubject={setClassSubject}
-              classError={classError}
-              classLoading={classLoading}
-              createdClassInfo={createdClassInfo}
-              handleCreateClass={handleCreateClass}
-            />
-          )}
-
-          {activeTab === "class-detail" && selectedClass && (
-            <ClassDetailView
-              classInfo={selectedClass}
-              onBack={() => {
-                setActiveTab("classes");
-                setSelectedClass(null);
+              onViewStudents={(cls) => {
+                setSelectedClass(cls);
+                setActiveTab("class-detail");
               }}
             />
           )}
 
+          {/* ── CREATE CLASS TAB ── */}
+          {activeTab === "create" && (
+            <div className="tab-panel">
+              <div className="create-class-wrapper">
+                <div className="create-class-title">Create New Class</div>
+                <div className="create-class-subtitle">
+                  Fill in the details below to set up a new class for your students.
+                </div>
+                <CreateClassForm
+                  className={className}
+                  setClassName={setClassName}
+                  classSection={classSection}
+                  setClassSection={setClassSection}
+                  classSubject={classSubject}
+                  setClassSubject={setClassSubject}
+                  handleCreateClass={handleCreateClass}
+                  classLoading={classLoading}
+                  classError={classError}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* ── CLASS DETAIL TAB ── */}
+          {activeTab === "class-detail" && selectedClass && (
+            <ClassDetailView
+              classInfo={selectedClass}
+              onBack={() => setActiveTab("classes")}
+            />
+          )}
+
+          {/* ── ASSIGNED TESTS TAB ── */}
           {activeTab === "assigned-tests" && (
             <div className="tab-panel">
-              <h3 className="panel-title">All Assigned Tests</h3>
+              <div className="panel-header">
+                <h3 className="panel-title">Active Test Schedules</h3>
+                <span className="muted-text">
+                  {allExams.filter((e) => e.status !== "Draft").length} test(s) scheduled
+                </span>
+              </div>
 
+              {loadingExams && <p className="muted-text">Loading exams...</p>}
               {examsError && <p className="error-text">{examsError}</p>}
-              {loadingExams && <p>Loading exams...</p>}
 
-              {!loadingExams &&
-                !examsError &&
-                allExams.filter((e) => e.status !== "Draft").length === 0 && (
-                  <p className="muted-text">
-                    No tests scheduled yet. Create and schedule tests from class
-                    views.
+              <div className="assigned-tests-list">
+                {allExams
+                  .filter((e) => e.status !== "Draft")
+                  .map((exam) => (
+                    <div key={exam._id} className="assigned-test-card">
+                      <div className="test-header">
+                        <h4>{exam.title}</h4>
+                        <span className={`status-pill status-${exam.status?.toLowerCase()}`}>
+                          {exam.status === "Active" && <span className="live-dot" />}
+                          {exam.status}
+                        </span>
+                      </div>
+
+                      <div className="test-meta">
+                        <span>📅 {new Date(exam.startTime).toLocaleDateString()}</span>
+                        <span>⏰ {new Date(exam.startTime).toLocaleTimeString()}</span>
+                        <span>❓ {exam.questions?.length || 0} Questions</span>
+                      </div>
+
+                      <button
+                        className="class-secondary-btn"
+                        style={{ alignSelf: "flex-start" }}
+                        onClick={() => {
+                          const cls = myClasses.find(
+                            (c) => String(c.id) === String(exam.classId)
+                          );
+                          if (cls) {
+                            setSelectedClass(cls);
+                            setActiveTab("class-detail");
+                          }
+                        }}
+                      >
+                        View Class Details →
+                      </button>
+                    </div>
+                  ))}
+
+                {!loadingExams && allExams.filter((e) => e.status !== "Draft").length === 0 && (
+                  <p className="muted-text" style={{ textAlign: "center", padding: "2rem 0" }}>
+                    No active tests scheduled yet.
                   </p>
                 )}
-
-              {!loadingExams && !examsError && (
-                <div className="assigned-tests-list">
-                  {allExams
-                    .filter((e) => e.status !== "Draft")
-                    .map((exam) => {
-                      const cls = myClasses.find(
-                        (c) => String(c.id) === String(exam.classId)
-                      );
-                      return (
-                        <div key={exam._id} className="assigned-test-card">
-                          <div className="test-header">
-                            <h4>{exam.title}</h4>
-                            <span className="test-class">
-                              {cls ? cls.name : "Unknown class"}
-                            </span>
-                          </div>
-                          <div className="test-meta">
-                            <div className="meta-item">
-                              <strong>Status:</strong>
-                              <span>{exam.status}</span>
-                            </div>
-                            <div className="meta-item">
-                              <strong>Start:</strong>
-                              <span>
-                                {exam.startTime
-                                  ? new Date(
-                                      exam.startTime
-                                    ).toLocaleString()
-                                  : "-"}
-                              </span>
-                            </div>
-                            <div className="meta-item">
-                              <strong>End:</strong>
-                              <span>
-                                {exam.endTime
-                                  ? new Date(exam.endTime).toLocaleString()
-                                  : "-"}
-                              </span>
-                            </div>
-                            <div className="meta-item">
-                              <strong>Questions:</strong>
-                              <span>{exam.questions?.length || 0}</span>
-                            </div>
-                          </div>
-                          <div className="test-actions">
-                            <button
-                              className="class-secondary-btn"
-                              onClick={() => {
-                                if (cls) {
-                                  setSelectedClass(cls);
-                                  setActiveTab("class-detail");
-                                }
-                              }}
-                            >
-                              Go to Class
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                </div>
-              )}
+              </div>
             </div>
           )}
         </main>

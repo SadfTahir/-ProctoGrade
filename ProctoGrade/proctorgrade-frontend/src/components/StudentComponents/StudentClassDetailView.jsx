@@ -1,5 +1,8 @@
 // src/components/StudentComponents/StudentClassDetailView.jsx
-// ProctoGrade — Student Class Detail View (v2.0)
+// ProctoGrade — Student Class Detail View (v2.1)
+// ✅ FIX: Draft exams ab students ko nazar nahi aayenge
+//   - fetch mein token add kiya (auth required)
+//   - frontend filter bhi case-insensitive kiya
 
 import React, { useEffect, useState } from "react";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
@@ -23,21 +26,26 @@ export default function StudentClassDetailView() {
 
   const token = localStorage.getItem("token");
 
-  // Fetch tests for this class
+  // ✅ FIX: Fetch tests — token add kiya taake backend Draft filter kare
   useEffect(() => {
     if (!id) return;
     const run = async () => {
       try {
         setLoadingTests(true); setTestsError("");
-        const res = await fetch(`${BACKEND_URL}/api/exams?classId=${id}`);
+        const res = await fetch(`${BACKEND_URL}/api/exams?classId=${id}`, {
+          headers: { Authorization: `Bearer ${token}` }, // ✅ token zaruri hai
+        });
         const data = await res.json().catch(() => null);
         if (!res.ok) throw new Error(data?.msg || "Failed to load tests");
-        if (Array.isArray(data)) setTests(data);
+        if (Array.isArray(data)) {
+          // ✅ FIX: case-insensitive Draft filter (backend bhi filter karega, yeh double safety)
+          setTests(data.filter(t => t.status?.toLowerCase() !== "draft"));
+        }
       } catch (err) { setTestsError(err.message); }
       finally { setLoadingTests(false); }
     };
     run();
-  }, [id]);
+  }, [id, token]);
 
   // Fetch this student's attempts
   useEffect(() => {

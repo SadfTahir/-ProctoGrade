@@ -13,24 +13,21 @@ const {
 const router = express.Router();
 
 // Common regex patterns
-const nameRegex = /^[A-Za-z][A-Za-z\s]{1,49}$/; // 2-50 chars, letters + spaces
-const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/; // min 8, letters + numbers
+const nameRegex = /^[A-Za-z][A-Za-z\s]{1,49}$/;
+const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/;
 
-// REGISTER (Create User with OTP verification)
+// ── Login attempt tracker (in-memory) ──
+const loginAttempts = {};
+const MAX_ATTEMPTS  = 5;
+const LOCK_TIME     = 15 * 60 * 1000; // 15 minutes
+
+// REGISTER
 router.post(
   "/register",
   [
-    body("name")
-      .matches(nameRegex)
-      .withMessage(
-        "Name should contain only letters and spaces (2-50 characters)."
-      ),
+    body("name").matches(nameRegex).withMessage("Name can contain only letters and spaces (2-50 characters)."),
     body("email").isEmail().withMessage("Valid email is required"),
-    body("password")
-      .matches(passwordRegex)
-      .withMessage(
-        "Password must be at least 8 characters and include letters and numbers."
-      ),
+    body("password").matches(passwordRegex).withMessage("Password must be at least 8 characters and include letters and numbers."),
     body("role").notEmpty().withMessage("Role is required"),
   ],
   async (req, res) => {
@@ -41,61 +38,35 @@ router.post(
     const { name, email, password, role } = req.body;
 
     try {
-      // Check if user already exists
       let user = await User.findOne({ email });
-
       if (user) {
-        // If user exists but not verified
         if (!user.isVerified) {
-          return res.status(400).json({
-            msg: "An account with this email already exists but is not verified. Please verify your email.",
-            code: "UNVERIFIED",
-          });
+          return res.status(400).json({ msg: "An account with this email already exists but is not verified. Please verify your email.", code: "UNVERIFIED" });
         }
-        // If user exists and verified
-        return res
-          .status(400)
-          .json({ msg: "User already exists. Please login." });
+        return res.status(400).json({ msg: "User already exists. Please login." });
       }
 
-      const salt = await bcrypt.genSalt(10);
+      const salt         = await bcrypt.genSalt(10);
       const hashedPassword = await bcrypt.hash(password, salt);
-
-      let finalRole;
-      if (["instructor", "examinee"].includes(role)) {
-        finalRole = role;
-      } else {
-        finalRole = "examinee";
-      }
-
-      // 6-digit OTP
-      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      const finalRole    = ["instructor", "examinee"].includes(role) ? role : "examinee";
+      const otp          = Math.floor(100000 + Math.random() * 900000).toString();
 
       user = new User({
-        name,
-        email,
-        password: hashedPassword,
-        role: finalRole,
+        name, email, password: hashedPassword, role: finalRole,
         isVerified: false,
         verificationOtp: otp,
-        verificationOtpExpires: Date.now() + 30 * 1000, // 30 seconds
+        verificationOtpExpires: Date.now() + 30 * 1000,
       });
-
       await user.save();
 
-      // Send OTP email
       try {
         await sendOtpEmail(email, otp);
       } catch (e) {
         console.error("Error sending OTP email:", e);
-        return res
-          .status(500)
-          .json({ msg: "Could not send verification email" });
+        return res.status(500).json({ msg: "Could not send verification email" });
       }
 
-      return res.json({
-        msg: "Registered successfully. Please check your email for OTP to verify your account.",
-      });
+      return res.json({ msg: "Registered successfully. Please check your email for OTP to verify your account." });
     } catch (err) {
       console.error(err);
       res.status(500).json({ msg: "Server error" });
@@ -108,9 +79,7 @@ router.post(
   "/verify-email",
   [
     body("email").isEmail().withMessage("Valid email is required"),
-    body("otp")
-      .isLength({ min: 6, max: 6 })
-      .withMessage("Valid OTP is required"),
+    body("otp").isLength({ min: 6, max: 6 }).withMessage("Valid OTP is required"),
   ],
   async (req, res) => {
     const errors = validationResult(req);
@@ -122,21 +91,15 @@ router.post(
     try {
       const user = await User.findOne({ email });
       if (!user) return res.status(400).json({ msg: "User not found" });
+      if (user.isVerified) return res.status(400).json({ msg: "Email is already verified" });
 
-      if (user.isVerified)
-        return res.status(400).json({ msg: "Email is already verified" });
-
-      if (
-        !user.verificationOtp ||
-        user.verificationOtp !== otp ||
-        !user.verificationOtpExpires ||
-        user.verificationOtpExpires < Date.now()
-      ) {
+      if (!user.verificationOtp || user.verificationOtp !== otp ||
+          !user.verificationOtpExpires || user.verificationOtpExpires < Date.now()) {
         return res.status(400).json({ msg: "Invalid or expired OTP" });
       }
 
-      user.isVerified = true;
-      user.verificationOtp = undefined;
+      user.isVerified            = true;
+      user.verificationOtp       = undefined;
       user.verificationOtpExpires = undefined;
       await user.save();
 
@@ -148,7 +111,7 @@ router.post(
   }
 );
 
-// LOGIN (only verified users)
+// LOGIN — with lockout (TC-00013 fix)
 router.post(
   "/login",
   [
@@ -162,34 +125,64 @@ router.post(
 
     const { email, password } = req.body;
 
+    // ── FIX TC-00013: Lockout check ──
+    const record = loginAttempts[email] || { count: 0, lockedUntil: null };
+
+    if (record.lockedUntil && Date.now() < record.lockedUntil) {
+      const remaining = Math.ceil((record.lockedUntil - Date.now()) / 60000);
+      return res.status(423).json({
+        msg: `Account temporarily locked due to multiple failed attempts. Try again in ${remaining} minute(s).`,
+      });
+    }
+
+    // Reset if lock expired
+    if (record.lockedUntil && Date.now() >= record.lockedUntil) {
+      record.count      = 0;
+      record.lockedUntil = null;
+    }
+
     try {
       const user = await User.findOne({ email });
-      if (!user) return res.status(400).json({ msg: "Invalid credentials" });
+      if (!user) {
+        // Count failed attempt
+        record.count += 1;
+        if (record.count >= MAX_ATTEMPTS) {
+          record.lockedUntil = Date.now() + LOCK_TIME;
+          record.count       = 0;
+          loginAttempts[email] = record;
+          return res.status(423).json({ msg: "Account temporarily locked due to multiple failed attempts. Try again in 15 minute(s)." });
+        }
+        loginAttempts[email] = record;
+        return res.status(400).json({ msg: "Invalid credentials" });
+      }
 
       if (!user.isVerified) {
-        return res.status(400).json({
-          msg: "Please verify your email before logging in",
-        });
+        return res.status(400).json({ msg: "Please verify your email before logging in" });
       }
 
       const isMatch = await bcrypt.compare(password, user.password);
-      if (!isMatch)
+      if (!isMatch) {
+        // Count failed attempt
+        record.count += 1;
+        if (record.count >= MAX_ATTEMPTS) {
+          record.lockedUntil   = Date.now() + LOCK_TIME;
+          record.count         = 0;
+          loginAttempts[email] = record;
+          return res.status(423).json({ msg: "Account temporarily locked due to multiple failed attempts. Try again in 15 minute(s)." });
+        }
+        loginAttempts[email] = record;
         return res.status(400).json({ msg: "Invalid credentials" });
+      }
 
-      const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
-        expiresIn: "1h",
-      });
+      // ── Success: reset attempts ──
+      delete loginAttempts[email];
+
+      const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "1h" });
 
       res.json({
         msg: "Login successful",
         token,
-        user: {
-          id: user._id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-          createdAt: user.createdAt,
-        },
+        user: { id: user._id, name: user.name, email: user.email, role: user.role, createdAt: user.createdAt },
       });
     } catch (err) {
       console.error(err);
@@ -211,26 +204,18 @@ router.post(
 
     try {
       const user = await User.findOne({ email });
-
-      // Security reason: always send same message
       if (!user) {
-        return res.status(200).json({
-          msg: "If this email exists, a reset link has been sent.",
-        });
+        return res.status(200).json({ msg: "If this email exists, a reset link has been sent." });
       }
 
-      // Random token (32 bytes hex) + 1 hour expiry
-      const resetToken = crypto.randomBytes(32).toString("hex");
-      const resetExpires = Date.now() + 60 * 60 * 1000; // 1 hour
+      const resetToken   = crypto.randomBytes(32).toString("hex");
+      const resetExpires = Date.now() + 60 * 60 * 1000;
 
-      user.resetPasswordToken = resetToken;
+      user.resetPasswordToken   = resetToken;
       user.resetPasswordExpires = resetExpires;
       await user.save();
 
-      // Frontend URL (adjust if needed)
-      const resetLink = `${
-        process.env.FRONTEND_URL || "http://localhost:5173"
-      }/reset-password/${resetToken}`;
+      const resetLink = `${process.env.FRONTEND_URL || "http://localhost:5173"}/reset-password/${resetToken}`;
 
       try {
         await sendResetPasswordEmail(email, resetLink);
@@ -239,9 +224,7 @@ router.post(
         return res.status(500).json({ msg: "Could not send reset email" });
       }
 
-      return res.status(200).json({
-        msg: "If this email exists, a reset link has been sent.",
-      });
+      return res.status(200).json({ msg: "If this email exists, a reset link has been sent." });
     } catch (err) {
       console.error(err);
       return res.status(500).json({ msg: "Server error" });
@@ -252,46 +235,30 @@ router.post(
 // RESET PASSWORD
 router.post(
   "/reset-password/:token",
-  [
-    body("password")
-      .matches(passwordRegex)
-      .withMessage(
-        "Password must be at least 8 characters and include letters and numbers."
-      ),
-  ],
+  [body("password").matches(passwordRegex).withMessage("Password must be at least 8 characters and include letters and numbers.")],
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty())
       return res.status(400).json({ msg: errors.array()[0].msg });
 
-    const { token } = req.params;
+    const { token }    = req.params;
     const { password } = req.body;
 
     try {
-      // Find user by valid token & non-expired
       const user = await User.findOne({
-        resetPasswordToken: token,
+        resetPasswordToken:   token,
         resetPasswordExpires: { $gt: Date.now() },
       });
 
-      if (!user) {
-        return res
-          .status(400)
-          .json({ msg: "Invalid or expired reset link." });
-      }
+      if (!user) return res.status(400).json({ msg: "Invalid or expired reset link." });
 
-      // Hash new password
-      const salt = await bcrypt.genSalt(10);
-      const hashedPassword = await bcrypt.hash(password, salt);
-
-      user.password = hashedPassword;
-      user.resetPasswordToken = undefined;
+      const salt           = await bcrypt.genSalt(10);
+      user.password        = await bcrypt.hash(password, salt);
+      user.resetPasswordToken   = undefined;
       user.resetPasswordExpires = undefined;
       await user.save();
 
-      return res.json({
-        msg: "Password reset successful. You can now login.",
-      });
+      return res.json({ msg: "Password reset successful. You can now login." });
     } catch (err) {
       console.error(err);
       return res.status(500).json({ msg: "Server error" });
@@ -299,7 +266,7 @@ router.post(
   }
 );
 
-// ALL USERS (Read)
+// ALL USERS
 router.get("/users", async (req, res) => {
   try {
     const users = await User.find({});
@@ -314,19 +281,12 @@ router.put("/users/:id", async (req, res) => {
   try {
     const { name, email, role } = req.body;
     const updateData = { name, email, role };
-
     if (req.body.password) {
-      const salt = await bcrypt.genSalt(10);
+      const salt       = await bcrypt.genSalt(10);
       updateData.password = await bcrypt.hash(req.body.password, salt);
     }
-
-    const user = await User.findByIdAndUpdate(
-      req.params.id,
-      updateData,
-      { new: true }
-    );
+    const user = await User.findByIdAndUpdate(req.params.id, updateData, { new: true });
     if (!user) return res.status(404).json({ msg: "User not found" });
-
     res.json({ msg: "User updated successfully", user });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -358,24 +318,18 @@ router.post(
     try {
       const user = await User.findOne({ email });
       if (!user) return res.status(400).json({ msg: "User not found" });
+      if (user.isVerified) return res.status(400).json({ msg: "Email is already verified" });
 
-      if (user.isVerified) {
-        return res.status(400).json({ msg: "Email is already verified" });
-      }
-
-      // Naya OTP + expiry
-      const otp = Math.floor(100000 + Math.random() * 900000).toString();
-      user.verificationOtp = otp;
-      user.verificationOtpExpires = Date.now() + 30 * 1000; // 30 seconds
+      const otp                   = Math.floor(100000 + Math.random() * 900000).toString();
+      user.verificationOtp        = otp;
+      user.verificationOtpExpires = Date.now() + 30 * 1000;
       await user.save();
 
       try {
         await sendOtpEmail(email, otp);
       } catch (e) {
         console.error("Error sending OTP email (resend):", e);
-        return res
-          .status(500)
-          .json({ msg: "Could not resend verification email" });
+        return res.status(500).json({ msg: "Could not resend verification email" });
       }
 
       return res.json({ msg: "New OTP sent to your email." });
@@ -386,7 +340,7 @@ router.post(
   }
 );
 
-// RECENT USERS API (for dashboard)
+// RECENT USERS
 router.get("/users/recent", async (req, res) => {
   try {
     const users = await User.find({}).sort({ createdAt: -1 }).limit(10);

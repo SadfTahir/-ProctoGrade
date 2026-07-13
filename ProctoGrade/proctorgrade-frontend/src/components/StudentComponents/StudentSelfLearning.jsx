@@ -1,55 +1,59 @@
 // src/components/StudentComponents/StudentSelfLearning.jsx
-// ProctoGrade — Student Self Learning (By Topic + By Content)
+// ProctoGrade — Student Self Learning
+// ✅ v3.0 FIXES:
+//   1. attemptId useState added (was missing → crash)
+//   2. handleSubmitPractice: answers now plain strings (MCQ = option text, short = text)
+//   3. MCQ answer: options[index] text sent, not index number
 
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
-const MAX_FILE_SIZE_MB = 5;
+const MAX_FILE_SIZE_MB    = 5;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 
 export default function StudentSelfLearning() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("learn");
 
-  // ── Generation Mode ──
-  const [mode, setMode] = useState("topic"); // "topic" | "content"
+  // ── Generation mode ──
+  const [mode, setMode] = useState("topic");
 
-  // ── By Topic only ──
-  const [subjects, setSubjects] = useState([]); // [{ id, name, topics[] }]
+  // ── By Topic ──
+  const [subjects, setSubjects]               = useState([]);
   const [selectedSubject, setSelectedSubject] = useState("");
-  const [topics, setTopics] = useState([]);
-  const [selectedTopic, setSelectedTopic] = useState("");
+  const [topics, setTopics]                   = useState([]);
+  const [selectedTopic, setSelectedTopic]     = useState("");
   const [loadingSubjects, setLoadingSubjects] = useState(false);
-  const [loadingTopics, setLoadingTopics] = useState(false);
+  const [loadingTopics, setLoadingTopics]     = useState(false);
 
-  // ── By Content only — no subject/topic fields ──
+  // ── By Content ──
   const [uploadedFile, setUploadedFile] = useState(null);
-  const [uploadStatus, setUploadStatus] = useState("idle"); // idle|uploading|done|error
-  const [uploadMsg, setUploadMsg] = useState("");
+  const [uploadStatus, setUploadStatus] = useState("idle");
+  const [uploadMsg, setUploadMsg]       = useState("");
 
   // ── Shared ──
   const [questionType, setQuestionType] = useState("mixed");
   const [numQuestions, setNumQuestions] = useState(5);
 
   // ── Generation ──
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [loading, setLoading]                   = useState(false);
+  const [error, setError]                       = useState("");
   const [generatedQuestions, setGeneratedQuestions] = useState([]);
 
   // ── Practice ──
-  const [attemptId, setAttemptId] = useState(null);
+  const [attemptId, setAttemptId]             = useState(null);   // ✅ FIX 1: was missing
   const [practiceQuestions, setPracticeQuestions] = useState([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [answers, setAnswers] = useState({});
-  const [submitting, setSubmitting] = useState(false);
+  const [currentIndex, setCurrentIndex]       = useState(0);
+  const [answers, setAnswers]                 = useState({});
+  const [submitting, setSubmitting]           = useState(false);
 
   // ── Results ──
   const [showResults, setShowResults] = useState(false);
-  const [results, setResults] = useState(null);
+  const [results, setResults]         = useState(null);
 
   // ── History ──
-  const [pastAttempts, setPastAttempts] = useState([]);
+  const [pastAttempts, setPastAttempts]       = useState([]);
   const [loadingAttempts, setLoadingAttempts] = useState(false);
 
   const token = localStorage.getItem("token");
@@ -65,11 +69,10 @@ export default function StudentSelfLearning() {
     if (activeTab === "history" && token) fetchPastAttempts();
   }, [activeTab, token]);
 
-  // ── Fetch subjects — API returns { subjects: [{ id, name, topics[] }] } ──
   const fetchSubjects = async () => {
     try {
       setLoadingSubjects(true);
-      const res = await fetch(`${BACKEND_URL}/api/exams/subjects`);
+      const res  = await fetch(`${BACKEND_URL}/api/exams/subjects`);
       const data = await res.json();
       if (res.ok && Array.isArray(data.subjects)) setSubjects(data.subjects);
     } catch (e) { console.error("Subjects error:", e); }
@@ -79,25 +82,23 @@ export default function StudentSelfLearning() {
   const fetchTopics = async (subjectName) => {
     try {
       setLoadingTopics(true); setSelectedTopic("");
-      const res = await fetch(`${BACKEND_URL}/api/exams/subjects/${encodeURIComponent(subjectName)}/topics`);
+      const res  = await fetch(`${BACKEND_URL}/api/exams/subjects/${encodeURIComponent(subjectName)}/topics`);
       const data = await res.json();
       if (res.ok && data.topics) setTopics(data.topics);
     } catch (e) { console.error("Topics error:", e); }
     finally { setLoadingTopics(false); }
   };
 
-  // ── File selection with 5MB check ──
   const handleFileChange = (e) => {
     const file = e.target.files[0] || null;
     setUploadStatus("idle"); setUploadMsg(""); setUploadedFile(null);
     if (!file) return;
-
     if (file.size > MAX_FILE_SIZE_BYTES) {
-      setUploadMsg(`❌ File too large. Max ${MAX_FILE_SIZE_MB}MB. Yours: ${(file.size / 1024 / 1024).toFixed(1)}MB`);
+      setUploadMsg(`❌ File too large. Max ${MAX_FILE_SIZE_MB}MB.`);
       setUploadStatus("error"); e.target.value = ""; return;
     }
     const allowed = [".pdf", ".txt", ".md", ".doc", ".docx", ".ppt", ".pptx"];
-    const ext = "." + file.name.split(".").pop().toLowerCase();
+    const ext     = "." + file.name.split(".").pop().toLowerCase();
     if (!allowed.includes(ext)) {
       setUploadMsg("❌ Unsupported file. Use PDF, Word, PPT, or TXT.");
       setUploadStatus("error"); e.target.value = ""; return;
@@ -105,16 +106,15 @@ export default function StudentSelfLearning() {
     setUploadedFile(file);
   };
 
-  // ── Upload content — no subject required from student ──
   const handleUpload = async () => {
     if (!uploadedFile) return setUploadMsg("Please select a file first.");
     try {
       setUploadStatus("uploading"); setUploadMsg("");
       const fd = new FormData();
       fd.append("file", uploadedFile);
-      fd.append("subject", "General"); // fixed, not shown to student
+      fd.append("subject", "General");
       fd.append("title", uploadedFile.name);
-      const res = await fetch(`${BACKEND_URL}/api/exams/content/upload`, { method: "POST", body: fd });
+      const res  = await fetch(`${BACKEND_URL}/api/exams/content/upload`, { method: "POST", body: fd });
       const data = await res.json();
       if (res.ok && data.success) {
         setUploadStatus("done");
@@ -126,13 +126,11 @@ export default function StudentSelfLearning() {
     } catch { setUploadStatus("error"); setUploadMsg("Upload failed. Check connection."); }
   };
 
-  // ── Generate questions ──
   const handleGenerate = async () => {
     setError(""); setGeneratedQuestions([]);
-
     if (mode === "topic") {
       if (!selectedSubject) return setError("Please select a subject.");
-      if (!selectedTopic) return setError("Please select a topic.");
+      if (!selectedTopic)   return setError("Please select a topic.");
     } else {
       if (uploadStatus !== "done") return setError("Please upload your content first.");
     }
@@ -147,94 +145,121 @@ export default function StudentSelfLearning() {
         ? { subject: selectedSubject, topic: selectedTopic, question_type: questionType, num_questions: numQuestions, difficulty: "medium" }
         : { topic: uploadedFile?.name?.replace(/\.[^/.]+$/, "") || "Uploaded Content", subject: "General", question_type: questionType, num_questions: numQuestions, difficulty: "medium" };
 
-      const res = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
+      const res  = await fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       const data = await res.json();
-      if (!res.ok) return setError(data.msg || "Generation failed. Try again.");
+      if (!res.ok)                 return setError(data.msg || "Generation failed. Try again.");
       if (!data.questions?.length) return setError("No questions generated. Try again.");
       setGeneratedQuestions(data.questions);
     } catch { setError("Generation failed. Check your connection."); }
     finally { setLoading(false); }
   };
 
-  // ── Start practice session ──
+  // ── Start practice ──
   const handleStartPractice = async () => {
-    if (!token) return alert("Please log in to start practice.");
+    if (!token)                     return alert("Please log in to start practice.");
     if (!generatedQuestions.length) return alert("Please generate questions first.");
+
     try {
       const res = await fetch(`${BACKEND_URL}/api/self-learning/start`, {
-        method: "POST",
+        method : "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          topic: mode === "topic" ? selectedTopic : (uploadedFile?.name?.replace(/\.[^/.]+$/, "") || "Uploaded Content"),
-          subject: mode === "topic" ? selectedSubject : "General",
-          contentType: questionType,
+        body   : JSON.stringify({
+          topic       : mode === "topic"
+            ? selectedTopic
+            : (uploadedFile?.name?.replace(/\.[^/.]+$/, "") || "Uploaded Content"),
+          subject     : mode === "topic" ? selectedSubject : "General",
+          contentType : questionType,
           numQuestions: generatedQuestions.length,
-          questions: generatedQuestions,
+          questions   : generatedQuestions,
         }),
       });
+
       const data = await res.json();
       if (!res.ok) throw new Error(data?.msg || data?.error || "Failed to start practice");
 
       const practiceQs = data.questions?.length
         ? data.questions
-        : generatedQuestions.map((q, i) => ({ id: i.toString(), text: q.text, type: q.type, options: q.options || null }));
+        : generatedQuestions.map((q, i) => ({
+            id     : i.toString(),
+            text   : q.text,
+            type   : q.type   || "mcq",
+            options: q.options || null,
+          }));
 
-      setAttemptId(data.attemptId);
+      setAttemptId(data.attemptId);   // ✅ FIX 1: now works
       setPracticeQuestions(practiceQs);
-      setCurrentIndex(0); setAnswers({});
-      setShowResults(false); setResults(null);
+      setCurrentIndex(0);
+      setAnswers({});
+      setShowResults(false);
+      setResults(null);
       setActiveTab("practice");
-    } catch (err) { alert(err.message || "Error starting practice"); }
+    } catch (err) {
+      alert(err.message || "Error starting practice");
+    }
   };
 
   // ── Submit practice ──
   const handleSubmitPractice = async () => {
     if (!attemptId || !practiceQuestions.length) return;
+
     const allAttempted = practiceQuestions.every((q, i) => {
       const ans = answers[i.toString()];
-      return q.type === "mcq" ? typeof ans === "number" : typeof ans === "string" && ans.trim().length > 0;
+      return q.type === "mcq"
+        ? typeof ans === "number"
+        : typeof ans === "string" && ans.trim().length > 0;
     });
     if (!allAttempted) return alert("Please attempt all questions before submitting.");
+
     try {
       setSubmitting(true);
-      const payloadAnswers = practiceQuestions.map((q, i) => ({
-        questionId: q.id || i.toString(),
-        questionText: q.text,
-        type: q.type,
-        selectedOptionIndex: q.type === "mcq" ? answers[i.toString()] : undefined,
-        textAnswer: q.type !== "mcq" ? answers[i.toString()] : undefined,
-      }));
-      const res = await fetch(`${BACKEND_URL}/api/self-learning/submit/${attemptId}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ answers: payloadAnswers }),
+
+      // ✅ FIX 2 + 3: plain strings array
+      // MCQ  → options[selectedIndex] = actual option text
+      // Short → text string directly
+      const payloadAnswers = practiceQuestions.map((q, i) => {
+        const ans = answers[i.toString()];
+        if (q.type === "mcq") {
+          return q.options?.[ans] ?? String(ans);   // ✅ index → option text
+        }
+        return typeof ans === "string" ? ans.trim() : "";
       });
+
+      const res = await fetch(`${BACKEND_URL}/api/self-learning/submit/${attemptId}`, {
+        method : "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body   : JSON.stringify({ answers: payloadAnswers }),
+      });
+
       const data = await res.json();
       if (!res.ok) throw new Error(data?.msg || "Failed to submit");
-      setResults(data); setShowResults(true); setActiveTab("results");
-    } catch (err) { alert(err.message || "Error submitting"); }
-    finally { setSubmitting(false); }
+
+      setResults(data);
+      setShowResults(true);
+      setActiveTab("results");
+    } catch (err) {
+      alert(err.message || "Error submitting");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
+  // ── History ──
   const fetchPastAttempts = async () => {
     try {
       setLoadingAttempts(true);
-      const res = await fetch(`${BACKEND_URL}/api/self-learning/my-attempts`, {
+      const res  = await fetch(`${BACKEND_URL}/api/self-learning/my-attempts`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
       if (res.ok && Array.isArray(data)) setPastAttempts(data);
-    } catch (e) { console.error(e); }
+      else setPastAttempts([]);
+    } catch (e) { console.error(e); setPastAttempts([]); }
     finally { setLoadingAttempts(false); }
   };
 
   const viewDetailedResults = async (id) => {
     try {
-      const res = await fetch(`${BACKEND_URL}/api/self-learning/attempt/${id}/results`, {
+      const res  = await fetch(`${BACKEND_URL}/api/self-learning/attempt/${id}/results`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
@@ -244,8 +269,9 @@ export default function StudentSelfLearning() {
   };
 
   const handleReset = () => {
-    setGeneratedQuestions([]); setPracticeQuestions([]); setAttemptId(null);
-    setCurrentIndex(0); setAnswers({}); setShowResults(false); setResults(null);
+    setGeneratedQuestions([]); setPracticeQuestions([]);
+    setCurrentIndex(0); setAnswers({}); setAttemptId(null);
+    setShowResults(false); setResults(null);
     setSelectedSubject(""); setSelectedTopic("");
     setUploadedFile(null); setUploadStatus("idle"); setUploadMsg("");
     setError(""); setActiveTab("learn");
@@ -253,14 +279,25 @@ export default function StudentSelfLearning() {
 
   const isAttempted = (i) => {
     const ans = answers[i.toString()];
-    const q = practiceQuestions[i];
+    const q   = practiceQuestions[i];
     if (!q) return false;
-    return q.type === "mcq" ? typeof ans === "number" : typeof ans === "string" && ans.trim().length > 0;
+    return q.type === "mcq"
+      ? typeof ans === "number"
+      : typeof ans === "string" && ans.trim().length > 0;
   };
 
   const currentQuestion = practiceQuestions[currentIndex] || {};
-  const selectedAnswer = answers[currentIndex.toString()];
-  const attemptedCount = practiceQuestions.filter((_, i) => isAttempted(i)).length;
+  const selectedAnswer  = answers[currentIndex.toString()];
+  const attemptedCount  = practiceQuestions.filter((_, i) => isAttempted(i)).length;
+
+  // ── Results helpers ──
+  const percentage    = results?.score        ?? results?.percentage   ?? 0;
+  const obtainedMarks = results?.totalScore   ?? results?.obtainedMarks ?? 0;
+  const totalMarks    = results?.maxScore     ?? results?.totalMarks    ?? 0;
+  const correctCount  = results?.correctAnswers ?? 0;
+  const totalQCount   = results?.totalQuestions ?? practiceQuestions.length;
+  const gradeLetter   = results?.gradeLetter  ?? "";
+  const breakdown     = results?.answers ?? results?.breakdown ?? results?.gradedAnswers ?? [];
 
   return (
     <div style={S.page}>
@@ -269,12 +306,14 @@ export default function StudentSelfLearning() {
       {/* ── Tab Bar ── */}
       <div style={S.tabBar}>
         {[
-          { key: "learn", icon: "📚", label: "Learn" },
+          { key: "learn",    icon: "📚", label: "Learn" },
           ...(practiceQuestions.length > 0 && !showResults ? [{ key: "practice", icon: "🎯", label: "Practice" }] : []),
           ...(showResults ? [{ key: "results", icon: "📊", label: "Results" }] : []),
           { key: "history", icon: "📜", label: "History" },
         ].map(t => (
-          <button key={t.key} className={`sl-tab ${activeTab === t.key ? "sl-tab-active" : ""}`} onClick={() => setActiveTab(t.key)}>
+          <button key={t.key}
+            className={`sl-tab ${activeTab === t.key ? "sl-tab-active" : ""}`}
+            onClick={() => setActiveTab(t.key)}>
             <span>{t.icon}</span> {t.label}
           </button>
         ))}
@@ -306,11 +345,10 @@ export default function StudentSelfLearning() {
                 : "Upload your notes or PDF (max 5MB) — AI generates questions from your content."}
             </p>
 
-            {/* ══ BY TOPIC — Subject → Topic ══ */}
+            {/* ── By Topic ── */}
             {mode === "topic" && (
               <div style={S.formSection}>
                 <div style={S.fieldRow}>
-                  {/* Subject */}
                   <div style={S.field}>
                     <label style={S.label}>Subject <span style={S.req}>*</span></label>
                     {loadingSubjects ? (
@@ -323,14 +361,10 @@ export default function StudentSelfLearning() {
                     ) : (
                       <select style={S.select} value={selectedSubject} onChange={e => setSelectedSubject(e.target.value)}>
                         <option value="">— Select Subject —</option>
-                        {/* ✅ sub = { id, name, topics[] } */}
-                        {subjects.map(sub => (
-                          <option key={sub.id} value={sub.name}>{sub.name}</option>
-                        ))}
+                        {subjects.map(sub => <option key={sub.id} value={sub.name}>{sub.name}</option>)}
                       </select>
                     )}
                   </div>
-                  {/* Topic */}
                   <div style={S.field}>
                     <label style={S.label}>Topic <span style={S.req}>*</span></label>
                     {loadingTopics ? (
@@ -338,10 +372,8 @@ export default function StudentSelfLearning() {
                     ) : (
                       <select
                         style={{ ...S.select, opacity: !selectedSubject ? 0.5 : 1, cursor: !selectedSubject ? "not-allowed" : "pointer" }}
-                        value={selectedTopic}
-                        onChange={e => setSelectedTopic(e.target.value)}
-                        disabled={!selectedSubject}
-                      >
+                        value={selectedTopic} onChange={e => setSelectedTopic(e.target.value)}
+                        disabled={!selectedSubject}>
                         <option value="">— Select Topic —</option>
                         {topics.map(t => <option key={t} value={t}>{t}</option>)}
                       </select>
@@ -352,7 +384,7 @@ export default function StudentSelfLearning() {
               </div>
             )}
 
-            {/* ══ BY CONTENT — Upload only ══ */}
+            {/* ── By Content ── */}
             {mode === "content" && (
               <div style={S.formSection}>
                 <div style={S.field}>
@@ -360,32 +392,15 @@ export default function StudentSelfLearning() {
                     Upload Notes <span style={S.req}>*</span>
                     <span style={S.fileSizeHint}> PDF, Word, PPT, TXT — max {MAX_FILE_SIZE_MB}MB</span>
                   </label>
-                  <label style={{
-                    ...S.dropzone,
-                    borderColor: uploadStatus === "done" ? "#059669" : uploadStatus === "error" ? "#dc2626" : "#cbd5e1",
-                    background: uploadStatus === "done" ? "#f0fdf4" : uploadStatus === "error" ? "#fef2f2" : "#f8fafc",
-                  }}>
-                    <input
-                      type="file"
-                      accept=".pdf,.txt,.md,.doc,.docx,.ppt,.pptx"
-                      style={{ display: "none" }}
-                      onChange={handleFileChange}
-                    />
-                    <span style={{ fontSize: "2rem" }}>
-                      {uploadStatus === "done" ? "✅" : uploadStatus === "error" ? "❌" : "📁"}
-                    </span>
-                    <span style={{ fontWeight: 600, color: "#334155" }}>
-                      {uploadedFile ? uploadedFile.name : "Click to select file"}
-                    </span>
-                    <span style={{ fontSize: "0.8rem", color: "#94a3b8" }}>
-                      {uploadedFile ? `${(uploadedFile.size / 1024 / 1024).toFixed(2)} MB` : `Max ${MAX_FILE_SIZE_MB}MB`}
-                    </span>
+                  <label style={{ ...S.dropzone, borderColor: uploadStatus === "done" ? "#059669" : uploadStatus === "error" ? "#dc2626" : "#cbd5e1", background: uploadStatus === "done" ? "#f0fdf4" : uploadStatus === "error" ? "#fef2f2" : "#f8fafc" }}>
+                    <input type="file" accept=".pdf,.txt,.md,.doc,.docx,.ppt,.pptx" style={{ display: "none" }} onChange={handleFileChange} />
+                    <span style={{ fontSize: "2rem" }}>{uploadStatus === "done" ? "✅" : uploadStatus === "error" ? "❌" : "📁"}</span>
+                    <span style={{ fontWeight: 600, color: "#334155" }}>{uploadedFile ? uploadedFile.name : "Click to select file"}</span>
+                    <span style={{ fontSize: "0.8rem", color: "#94a3b8" }}>{uploadedFile ? `${(uploadedFile.size / 1024 / 1024).toFixed(2)} MB` : `Max ${MAX_FILE_SIZE_MB}MB`}</span>
                   </label>
                   {uploadedFile && uploadStatus !== "done" && (
-                    <button
-                      style={{ ...S.uploadBtn, opacity: uploadStatus === "uploading" ? 0.6 : 1 }}
-                      onClick={handleUpload} disabled={uploadStatus === "uploading"}
-                    >
+                    <button style={{ ...S.uploadBtn, opacity: uploadStatus === "uploading" ? 0.6 : 1 }}
+                      onClick={handleUpload} disabled={uploadStatus === "uploading"}>
                       {uploadStatus === "uploading" ? "⏳ Uploading..." : "⬆️ Upload to AI"}
                     </button>
                   )}
@@ -398,7 +413,7 @@ export default function StudentSelfLearning() {
               </div>
             )}
 
-            {/* ══ SHARED — Type + No. of Questions ══ */}
+            {/* ── Shared: type + count ── */}
             <div style={S.fieldRow}>
               <div style={S.field}>
                 <label style={S.label}>Question Type</label>
@@ -484,7 +499,7 @@ export default function StudentSelfLearning() {
                 Q{currentIndex + 1} / {practiceQuestions.length}
               </div>
               <div style={S.progressBar}>
-                <div style={{ ...S.progressFill, width: `${((currentIndex + 1) / practiceQuestions.length) * 100}%` }} />
+                <div style={{ ...S.progressFill, width: `${(attemptedCount / practiceQuestions.length) * 100}%` }} />
               </div>
             </div>
           </div>
@@ -497,8 +512,7 @@ export default function StudentSelfLearning() {
                 {practiceQuestions.map((_, i) => (
                   <button key={i}
                     style={{ ...S.pill, ...(i === currentIndex ? S.pillActive : {}), ...(isAttempted(i) && i !== currentIndex ? S.pillDone : {}) }}
-                    onClick={() => setCurrentIndex(i)}
-                  >
+                    onClick={() => setCurrentIndex(i)}>
                     {i + 1}
                     {isAttempted(i) && <span style={S.pillCheck}>✓</span>}
                   </button>
@@ -515,8 +529,7 @@ export default function StudentSelfLearning() {
                   {currentQuestion.options.map((opt, i) => (
                     <li key={i}
                       style={{ ...S.optItem, ...(selectedAnswer === i ? S.optSelected : {}) }}
-                      onClick={() => setAnswers(prev => ({ ...prev, [currentIndex.toString()]: i }))}
-                    >
+                      onClick={() => setAnswers(prev => ({ ...prev, [currentIndex.toString()]: i }))}>
                       <span style={S.optLetter}>{String.fromCharCode(65 + i)}</span>
                       <span style={{ flex: 1 }}>{opt}</span>
                       {selectedAnswer === i && <span style={{ color: "#6366f1", fontWeight: 700 }}>✓</span>}
@@ -544,8 +557,9 @@ export default function StudentSelfLearning() {
                 {currentIndex < practiceQuestions.length - 1 ? (
                   <button style={S.navBtnPrimary} onClick={() => setCurrentIndex(i => i + 1)}>Next →</button>
                 ) : (
-                  <button style={{ ...S.navBtnSuccess, opacity: submitting ? 0.7 : 1 }} onClick={handleSubmitPractice} disabled={submitting}>
-                    {submitting ? "Submitting..." : "✓ Submit Practice"}
+                  <button style={{ ...S.navBtnSuccess, opacity: submitting ? 0.7 : 1 }}
+                    onClick={handleSubmitPractice} disabled={submitting}>
+                    {submitting ? "⏳ Grading..." : "✓ Submit & Get Results"}
                   </button>
                 )}
               </div>
@@ -559,46 +573,51 @@ export default function StudentSelfLearning() {
         <div className="sl-fade">
           <div style={S.resultsHero}>
             <div style={S.scoreCircle}>
-              <span style={{ fontSize: "3rem", fontWeight: 800 }}>{results.summary?.score ?? results.score}%</span>
-              <span style={{ fontSize: "0.9rem", opacity: 0.9 }}>Score</span>
+              <span style={{ fontSize: "2.5rem", fontWeight: 800 }}>{percentage}%</span>
+              <span style={{ fontSize: "1.1rem", fontWeight: 700, marginTop: "0.25rem" }}>{gradeLetter}</span>
+              <span style={{ fontSize: "0.85rem", opacity: 0.9 }}>Score</span>
             </div>
             <div style={{ color: "white", textAlign: "center" }}>
               <h2 style={{ margin: "0 0 0.5rem", fontSize: "2rem", fontWeight: 800 }}>Practice Complete!</h2>
-              <p style={{ margin: 0, fontSize: "1.1rem" }}>
-                {results.summary?.correctAnswers ?? results.correctAnswers} / {results.summary?.totalQuestions ?? results.totalQuestions} correct
-              </p>
-              <p style={{ margin: "0.25rem 0 0", opacity: 0.9 }}>
-                {results.summary?.totalScore ?? results.totalScore} / {results.summary?.maxScore ?? results.maxScore} points
-              </p>
+              <p style={{ margin: 0, fontSize: "1.1rem" }}>{correctCount} / {totalQCount} correct</p>
+              <p style={{ margin: "0.25rem 0 0", opacity: 0.9 }}>{obtainedMarks} / {totalMarks} marks</p>
             </div>
           </div>
 
-          {(results.breakdown || results.answers) && (
+          {breakdown.length > 0 && (
             <div style={S.card}>
               <h3 style={{ margin: "0 0 1.5rem", fontSize: "1.25rem", fontWeight: 700 }}>📋 Detailed Breakdown</h3>
               <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-                {(results.breakdown || results.answers).map((item, i) => (
+                {breakdown.map((item, i) => (
                   <div key={i} style={{ ...S.resultCard, borderColor: item.isCorrect ? "#4ade80" : "#f87171", background: item.isCorrect ? "#f0fdf4" : "#fff1f2" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
                       <span style={{ fontWeight: 700, color: "#6366f1" }}>Question {i + 1}</span>
                       <span style={{ ...S.resultBadge, background: item.isCorrect ? "#16a34a" : "#dc2626" }}>
-                        {item.pointsAwarded ?? 0} / {item.maxPoints ?? 10} pts
+                        {item.marksObtained ?? item.pointsAwarded ?? 0} / {item.maxMarks ?? item.maxPoints ?? 10} pts
                       </span>
                     </div>
-                    <p style={{ margin: "0 0 1rem", fontWeight: 600, color: "#111827", lineHeight: 1.6 }}>{item.questionText}</p>
+                    <p style={{ margin: "0 0 1rem", fontWeight: 600, color: "#111827", lineHeight: 1.6 }}>
+                      {item.questionText || item.question_text}
+                    </p>
                     <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
                       <div style={{ ...S.ansBox, borderColor: "#6366f1", background: "#eff6ff" }}>
                         <strong style={S.ansLabel}>Your Answer</strong>
-                        <p style={{ margin: 0 }}>{typeof item.studentAnswer === "number" ? `Option ${item.studentAnswer + 1}` : item.studentAnswer || "(No answer)"}</p>
+                        <p style={{ margin: 0 }}>{item.studentAnswer || "(No answer)"}</p>
                       </div>
-                      {item.correctAnswer && (
+                      {item.modelAnswer && (
                         <div style={{ ...S.ansBox, borderColor: "#16a34a", background: "#f0fdf4" }}>
-                          <strong style={S.ansLabel}>Correct Answer</strong>
-                          <p style={{ margin: 0 }}>{item.correctAnswer}</p>
+                          <strong style={S.ansLabel}>Model Answer</strong>
+                          <p style={{ margin: 0 }}>{item.modelAnswer}</p>
+                        </div>
+                      )}
+                      {item.keyConcepts?.length > 0 && (
+                        <div style={{ ...S.ansBox, borderColor: "#8b5cf6", background: "#f5f3ff" }}>
+                          <strong style={S.ansLabel}>Key Concepts</strong>
+                          <p style={{ margin: 0 }}>{item.keyConcepts.join(", ")}</p>
                         </div>
                       )}
                       <div style={{ ...S.ansBox, borderColor: "#f59e0b", background: "#fef3c7" }}>
-                        <strong style={S.ansLabel}>Feedback</strong>
+                        <strong style={S.ansLabel}>AI Feedback</strong>
                         <p style={{ margin: 0 }}>{item.feedback || item.aiGradingFeedback || "No feedback"}</p>
                       </div>
                     </div>
@@ -640,25 +659,25 @@ export default function StudentSelfLearning() {
                   <div key={attempt._id} style={S.historyCard}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "1rem" }}>
                       <div>
-                        <h4 style={{ margin: "0 0 0.375rem", fontSize: "1.1rem", fontWeight: 700, color: "#111827" }}>{attempt.topic}</h4>
+                        <h4 style={{ margin: "0 0 0.375rem", fontSize: "1.1rem", fontWeight: 700, color: "#111827" }}>
+                          {attempt.topic || attempt.subject}
+                        </h4>
                         <div style={{ display: "flex", gap: "0.5rem", fontSize: "0.85rem", color: "#64748b", flexWrap: "wrap" }}>
                           <span>{attempt.subject}</span>
                           <span>•</span>
                           <span>{attempt.totalQuestions} questions</span>
                           <span>•</span>
-                          <span>{attempt.correctAnswers || 0} correct</span>
-                          <span>•</span>
                           <span>{new Date(attempt.createdAt).toLocaleDateString()}</span>
                         </div>
                       </div>
-                      <span style={{ fontSize: "2rem", fontWeight: 800, color: "#6366f1", flexShrink: 0 }}>{attempt.score}%</span>
+                      <span style={{ fontSize: "2rem", fontWeight: 800, color: "#6366f1", flexShrink: 0 }}>
+                        {attempt.score ?? attempt.percentage ?? 0}%
+                      </span>
                     </div>
-                    {attempt.status === "completed" && (
-                      <button style={{ ...S.navBtn, marginTop: "0.875rem", alignSelf: "flex-start" }}
-                        onClick={() => viewDetailedResults(attempt._id)}>
-                        📊 View Details
-                      </button>
-                    )}
+                    <button style={{ ...S.navBtn, marginTop: "0.875rem", alignSelf: "flex-start" }}
+                      onClick={() => viewDetailedResults(attempt._id)}>
+                      📊 View Details
+                    </button>
                   </div>
                 ))}
               </div>

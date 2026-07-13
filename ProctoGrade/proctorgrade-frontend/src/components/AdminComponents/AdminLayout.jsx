@@ -7,11 +7,12 @@ function AdminLayout({
   children,
   adminName,
   adminEmail,
-  newUserCount,
-  notifications,
+  badgeCount = 0,
+  contactNotifications = [],
+  userNotifications = [],
   notificationOpen,
   setNotificationOpen,
-  onBellClick
+  onBellClick,
 }) {
   return (
     <div className="admin-layout">
@@ -20,8 +21,9 @@ function AdminLayout({
         <Topbar
           adminName={adminName}
           adminEmail={adminEmail}
-          newUserCount={newUserCount}
-          notifications={notifications}
+          badgeCount={badgeCount}
+          contactNotifications={contactNotifications}
+          userNotifications={userNotifications}
           notificationOpen={notificationOpen}
           setNotificationOpen={setNotificationOpen}
           onBellClick={onBellClick}
